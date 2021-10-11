@@ -5,4 +5,5 @@ pretrained/
 source/model/utils/__pycache__
 source/model/__pycache__
 source/__pycache__
-__pycache__
+__pycache__/
+.ipynb_checkpoints/

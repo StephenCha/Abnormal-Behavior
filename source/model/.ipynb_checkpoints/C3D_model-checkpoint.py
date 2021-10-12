@@ -7,7 +7,7 @@ class C3D(nn.Module):
     The C3D network.
     """
 
-    def __init__(self, num_classes, model_dir, pretrained=False):
+    def __init__(self, num_classes, model_dir="../pretrained/c3d-pretrained.pth", pretrained=False):
         super(C3D, self).__init__()
 
         self.conv1 = nn.Conv3d(3, 64, kernel_size=(3, 3, 3), padding=(1, 1, 1))
@@ -39,6 +39,7 @@ class C3D(nn.Module):
         self.__init_weight()
 
         if pretrained:
+            self.model_dir = model_dir
             self.__load_pretrained_weights()
 
     def forward(self, x):
@@ -106,7 +107,7 @@ class C3D(nn.Module):
                         "classifier.3.bias": "fc7.bias",
                         }
 
-        p_dict = torch.load(Path.model_dir())
+        p_dict = torch.load(self.model_dir)
         s_dict = self.state_dict()
         for name in p_dict:
             if name not in corresp_name:

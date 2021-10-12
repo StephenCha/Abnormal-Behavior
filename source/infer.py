@@ -11,8 +11,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from source.dataset import TestDataset
-from source.model import C3D_model, R2Plus1D_model, R3D_model
+from dataset import TestDataset
+from model import C3D_model, R2Plus1D_model, R3D_model
 
 
 cls_li = ['driveway_walk', 'fall_down', 'fighting', 'jay_walk', 'normal', 'putup_umbrella', 'ride_cycle', 'ride_kick', 'ride_moto']
@@ -55,7 +55,7 @@ def infer(model_path='base_weights.pth.tar', random_seed=42):
     else:
         preprocess = True
 
-    test_dataset = TestDataset(dataset=dataset, clip_len=16, preprocess=preprocess)
+    test_dataset = TestDataset(root_dir = "../dataset", dataset=dataset, clip_len=16, preprocess=preprocess)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, num_workers=4)
 
     model.eval()
@@ -75,13 +75,13 @@ def infer(model_path='base_weights.pth.tar', random_seed=42):
     stop_time = timeit.default_timer()
     print("Execution time: " + str(stop_time - start_time) + "\n")
 
-    sample_submission = pd.read_csv('sample_submission.csv')
+    sample_submission = pd.read_csv('../sample_submission.csv')
     sample_submission['class'] = [cls_li[int(pred)] for pred in pred_li]
     sample_submission.to_csv('submit.csv', index=False)
 
 
 if __name__ == "__main__":
 
-    model_path = 'baseline_weights.pth.tar' #sys.argv[1]
+    model_path = '../run/baseline_weights.pth.tar' #sys.argv[1]
     infer(model_path)
 

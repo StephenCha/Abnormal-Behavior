@@ -20,8 +20,9 @@ class net(nn.Module):
         self.linear_global = nn.Linear(LSTM_UNITS*2, 9)
 
     def forward(self, x, lengths=None):
+        print(x.size())
         with torch.no_grad():
-            embedding = self.cnn..forward_features(x)
+            embedding = self.cnn.forward_features(x)
             embedding = self.avgpool(embedding)
             b,f,_,_ = embedding.shape
             embedding = embedding.reshape(1,b,f)

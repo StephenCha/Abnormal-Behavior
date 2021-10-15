@@ -11,9 +11,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from dataset import TestDataset
-from model import C3D_model, R2Plus1D_model, R3D_model
+from source.dataset import TestDataset
+#from model import C3D_model, R2Plus1D_model, R3D_model
 
+from source.model.utils.vit import TimeSformer
 
 cls_li = ['driveway_walk', 'fall_down', 'fighting', 'jay_walk', 'normal', 'putup_umbrella', 'ride_cycle', 'ride_kick', 'ride_moto']
  
@@ -39,8 +40,15 @@ def infer(model_path='base_weights.pth.tar', random_seed=42):
     np.random.seed(RANDOM_SEED)
     random.seed(RANDOM_SEED)
 
-    model = C3D_model.C3D(num_classes=num_classes, pretrained=True)
-
+    #model = C3D_model.C3D(num_classes=num_classes, pretrained=True)
+    model = TimeSformer(
+        img_size=args.img_size,
+        num_classes=num_classes,
+        num_frames=args.num_frames,
+        attention_type=args.attention_type,
+        pretrained_model=args.pretrained_model,
+    )
+    
     checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)   # Load all tensors onto the CPU
     print(f"Initializing weights from: {model_path.split('/')[-1]}...")
     model.load_state_dict(checkpoint['state_dict'])
@@ -82,6 +90,6 @@ def infer(model_path='base_weights.pth.tar', random_seed=42):
 
 if __name__ == "__main__":
 
-    model_path = '../run/baseline_weights.pth.tar' #sys.argv[1]
+    model_path = './run/run_15/models/TimeSformer-kids_epoch-8_epoch_score-0.767767.pt.pth.tar'
     infer(model_path)
 

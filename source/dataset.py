@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from torch.utils.data import Dataset
 
+import torchvision.transforms as transforms
 
 class VideoDataset(Dataset):
     r"""A Dataset for a folder of videos. Expects the directory structure to be
@@ -19,17 +20,19 @@ class VideoDataset(Dataset):
             preprocess (bool): Determines whether to preprocess dataset. Default is False.
     """
 
-    def __init__(self, root_dir, dataset='ucf101', split='train', clip_len=16, preprocess=False):
+    def __init__(self, root_dir, dataset='ucf101', split='train', clip_len=16, preprocess=False, size=(171, 128, 112), autoaug=False):
         self.root_dir= root_dir + '/train'
         self.output_dir = root_dir + '/train_processed'
         folder = os.path.join(self.output_dir, split)
         self.clip_len = clip_len
         self.split = split
-
+        self.autoaug = autoaug
+        
         # The following three parameters are chosen as described in the paper section 4.1
-        self.resize_height = 128
-        self.resize_width = 171
-        self.crop_size = 112
+        # size should be tuple, (width, height, crop size)
+        self.resize_height = size[1]
+        self.resize_width = size[0]
+        self.crop_size = size[2]
 
         if not self.check_integrity():
             raise RuntimeError('Dataset not found or corrupted.' +
@@ -73,6 +76,9 @@ class VideoDataset(Dataset):
                 with open(label_dir + '/kids_labels.txt', 'w') as f:
                     for id, label in enumerate(sorted(self.label2index)):
                         f.writelines(str(id+1) + ' ' + label + '\n')
+                        
+    def get_labels(self):
+        return self.label_array
 
     def __len__(self):
         return len(self.fnames)
@@ -88,7 +94,11 @@ class VideoDataset(Dataset):
             buffer = self.randomflip(buffer)
         buffer = self.normalize(buffer)
         buffer = self.to_tensor(buffer)
-        return torch.from_numpy(buffer), torch.from_numpy(labels)
+        buffer = torch.from_numpy(buffer)
+        labels = torch.from_numpy(labels)
+        if self.autoaug:
+            buffer = self.autoaugment(buffer, self.autoaug)
+        return buffer, labels
 
     def check_integrity(self):
         if not os.path.exists(self.root_dir):
@@ -109,7 +119,7 @@ class VideoDataset(Dataset):
                                     sorted(os.listdir(os.path.join(self.output_dir, 'train', video_class, video)))[0])
                 if 'ipynb' in video_name: continue
                 image = cv2.imread(video_name)
-                if np.shape(image)[0] != 128 or np.shape(image)[1] != 171:
+                if np.shape(image)[0] != self.resize_height or np.shape(image)[1] != self.resize_width:
                     return False
                 else:
                     break
@@ -181,7 +191,7 @@ class VideoDataset(Dataset):
             if count % EXTRACT_FREQUENCY == 0:
                 if (frame_height != self.resize_height) or (frame_width != self.resize_width):
                     frame = cv2.resize(frame, (self.resize_width, self.resize_height))
-                cv2.imwrite(filename=os.path.join(save_dir, video_filename, '0000{}.jpg'.format(str(i))), img=frame)
+                cv2.imwrite(filename=os.path.join(save_dir, video_filename, str(i).zfill(5)+'.jpg'), img=frame)
                 i += 1
             count += 1
 
@@ -235,18 +245,40 @@ class VideoDataset(Dataset):
                  width_index:width_index + crop_size, :]
 
         return buffer
+        
+    def autoaugment(self, img, policies):
+        img = img.type(torch.uint8)
+        # image size is [6, 16, 112, 112]
+        if policies == 'cifar':
+            policy = transforms.AutoAugmentPolicy.CIFAR10
+        elif policies == 'imagenet':
+            policy = transforms.AutoAugmentPolicy.IMAGENET
+        elif policies == 'svhn':
+            policy = transforms.AutoAugmentPolicy.SVHN
+        transform = transforms.Compose([
+            transforms.AutoAugment(),
+        ])
+        
+        temp = []
+        for i in range(img.size(1)):
+            t_img = transform(img[:, i, :, :])
+            temp.append(t_img)
+        transformed_img = torch.stack(temp, dim=1)
+        transformed_img = transformed_img.type(torch.float32)
+        return transformed_img
 
 class TestDataset(Dataset):
-    def __init__(self, root_dir, dataset='kids', clip_len=16, preprocess=False):
+    def __init__(self, root_dir, dataset='kids', clip_len=16, size=(171, 128, 112), preprocess=False):
 
         self.root_dir = root_dir + '/test'
         self.output_dir = root_dir + '/test_processed'
         self.clip_len = clip_len
 
         # The following three parameters are chosen as described in the paper section 4.1
-        self.resize_height = 128
-        self.resize_width = 171
-        self.crop_size = 112
+        # size should be tuple, (width, height, crop size)
+        self.resize_height = size[1]
+        self.resize_width = size[0]
+        self.crop_size = size[2]
 
         if preprocess:
             self.preprocess()
@@ -269,7 +301,6 @@ class TestDataset(Dataset):
         buffer = self.randomflip(buffer)
         buffer = self.normalize(buffer)
         buffer = self.to_tensor(buffer)
-
         return torch.from_numpy(buffer)
 
 
@@ -318,7 +349,7 @@ class TestDataset(Dataset):
             if count % EXTRACT_FREQUENCY == 0:
                 if (frame_height != self.resize_height) or (frame_width != self.resize_width):
                     frame = cv2.resize(frame, (self.resize_width, self.resize_height))
-                cv2.imwrite(filename=os.path.join(save_dir, video_filename, '0000{}.jpg'.format(str(i))), img=frame)
+                cv2.imwrite(filename=os.path.join(save_dir, video_filename, str(i).zfill(5)+'.jpg'), img=frame)
                 i += 1
             count += 1
 
@@ -373,7 +404,6 @@ class TestDataset(Dataset):
                  width_index:width_index + crop_size, :]
 
         return buffer
-
 
 if __name__ == "__main__":
     pass
